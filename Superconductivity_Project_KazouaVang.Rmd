@@ -1,0 +1,657 @@
+---
+title: "STA_160_Final_Project_Kazoua_Vang"
+author: "Kazoua Vang"
+date: "6/10/2020"
+output: html_document
+---
+install.packages("GGally")
+install.packages("tidyverse")
+install.packages("rlang")
+install.packages("ggplot2")
+
+library(tidyverse)
+library(ggplot2)
+library(GGally)
+```{r}
+#Import Data 
+superconduct_data <- train 
+superconduct_data
+```
+
+```{r}
+names(superconduct_data)
+```
+
+```{r}
+summary(superconduct_data)
+```
+
+```{r}
+entropy.data <- superconduct_data %>% 
+                    select(starts_with("entropy"),critical_temp)
+                  
+entropy.data
+```
+
+
+```{r}
+cor(entropy.data)
+```
+
+
+```{r}
+plot(entropy.data)
+```
+
+```{r}
+split.entropy.data <- entropy.data %>% 
+                        mutate(ct_type = if_else(critical_temp > 20, "1", "0")) %>% 
+                        select(-critical_temp)
+split.entropy.data
+```
+```{r}
+plot(split.entropy.data$entropy_atomic_mass, split.entropy.data$ct_type)
+plot(split.entropy.data$entropy_fie, split.entropy.data$ct_type)
+plot(split.entropy.data$entropy_atomic_radius, split.entropy.data$ct_type)
+plot(split.entropy.data$entropy_Density, split.entropy.data$ct_type)
+plot(split.entropy.data$entropy_ElectronAffinity, split.entropy.data$ct_type)
+plot(split.entropy.data$entropy_FusionHeat, split.entropy.data$ct_type)
+plot(split.entropy.data$entropy_ThermalConductivity, split.entropy.data$ct_type)
+plot(split.entropy.data$entropy_Valence, split.entropy.data$ct_type)
+```
+
+
+```{r}
+plot(split.entropy.data)
+```
+
+install.packages("MASS")
+```{r}
+#LDA 
+library(MASS) 
+#Perfoming linear discriminant analysis with iris dataset 
+entropy.fit.LDA <- lda(ct_type ~ ., data = split.entropy.data)
+entropy.fit.LDA
+```
+
+```{r}
+#Performing Classification 
+entropy.fit.LDA.Class <- predict(entropy.fit.LDA, newdata = split.entropy.data[,c(1,2,3,4,5,6,7,8)])$class
+entropy.fit.LDA.Class
+```
+
+
+```{r}
+#Determining Misclassification 
+table(split.entropy.data[,9], entropy.fit.LDA.Class)
+```
+
+```{r}
+#Ridge Regression 
+```
+
+install.packages("rrcov")
+```{r}
+library(rrcov)
+par(mfrow=c(1,1), mar=c(4,4,2,1))
+plot(split.entropy.data$entropy_fie ,split.entropy.data$entropy_Valence ,xlab="Entropy Fie",ylab="Entropy Valence",
+     pch=rep(c(18,20),each=50),col=rep(c(2,4),each=50),main=" Entropy Fie vs Entropy Valence")
+legend("topright",legend=c("1", "0"),pch=c(18,20),col=c(2,4),cex=1)
+plot(split.entropy.data) #plot matrix scatterplot
+
+pairs(split.entropy.data[1:8], main = "Matrix Scatterplot of Superconductor (Entropy) Data", pch = 21, cex = 0.5, 
+      col = c("red", "green3")[split.entropy.data$ct_type],
+      bg = c("red", "green3")[unclass(split.entropy.data$ct_type)])
+
+```
+
+
+```{r}
+plot(split.entropy.data$entropy_fie, split.entropy.data$entropy_Valence, col = c("red","green3")[(split.entropy.data$ct_type)],pch=rep(c(18,20),each=50), bg=c("red","green3")[unclass(split.entropy.data$ct_type)], xlab="Entropy Fie", ylab="Entropy Valence",main="Entropy Fie vs Entropy Valence")
+legend("bottomright",legend=c("1","0"),pch=c(18,20),col=c("red","green3"))
+
+abline(lm(entropy_fie ~ entropy_Valence, data=split.entropy.data)$coefficients, col="black")
+abline(lm(entropy_fie ~ entropy_Valence, data=split.entropy.data[which(split.entropy.data$ct_type == "1"),])$coefficients, col="red")
+abline(lm(entropy_fie ~ entropy_Valence, data=split.entropy.data[which(split.entropy.data$ct_type == "0"),])$coefficients, col="green3")
+```
+
+
+```{r}
+hist(superconduct_data$critical_temp)
+```
+
+
+```{r}
+entropy.fit <- lm(critical_temp ~ ., data = entropy.data)
+summary(entropy.fit)
+```
+
+install.packages("car")
+install.packages("ridge")
+library(car)
+library(ridge)
+```{r}
+#Ridge Regression 
+data(entropy.data, package = "datasets") #initialize data 
+head(entropy.data, 10)
+```
+
+```{r}
+inputData <- data.frame(entropy.data)
+colnames(inputData)[9] <- "response"
+inputData
+```
+
+
+```{r}
+#Calculate Correlations 
+XVars <- inputData[,-9]
+round(cor(XVars),2)
+```
+
+
+```{r}
+#Prepare Training and Test Data 
+set.seed(100)
+trainingIndex <- sample(1:nrow(inputData), 0.8*nrow(inputData)) #indices for 80% training data 
+trainingData <- inputData[trainingIndex, ] #training data 
+testData <- inputData[-trainingIndex,]#test data 
+trainingData 
+testData
+```
+
+
+```{r}
+#Predict Using Liner Regression 
+lmMod <- lm(response ~., trainingData) #the linear reg model 
+summary(lmMod) # get summary 
+vif(lmMod) #get VIF
+```
+
+```{r}
+#checking to see what this model predicts
+predicted <- predict(lmMod, testData) #predict on test data
+compare <- cbind(actual = testData$response, predicted) #combine actual and predicted 
+predicted 
+compare
+```
+
+
+```{r}
+mean (apply(compare, 1,min)/apply(compare,1,max)) #calculate accuracy
+```
+
+
+```{r}
+#Apply Ridge Regression on Same Data 
+linRidgeMod <- linearRidge(response ~., data = trainingData) #the ridge regression model 
+```
+
+
+```{r}
+predicted <- predict(linRidgeMod, testData) #predict on test data 
+compare <- cbind(actual = testData$response, predicted)
+mean(apply(compare, 1, min)/apply(compare,1,max)) #calculate accuracy 
+
+#Although, ridge regression improves the accuracy by a little bit, the difference is super small. (.06 difference)
+```
+
+
+
+
+
+
+
+
+```{r}
+split.data <- superconduct_data %>% 
+               mutate(
+                 ct_type = if_else(critical_temp > 20, "1", "0")
+               )
+split.data
+```
+
+install.packages("cluster")
+install.packages("factoextra")
+install.packages("dendextend") 
+library(cluster)
+library(factoextra)
+library(dendextend)
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+#standardizing data
+std.split.data <- scale(superconduct_data)
+```
+
+```{r}
+#Hierarchical Cluster Analysis 
+
+#dissimilarity matrix 
+d <- dist(split.data, method = "euclidean")
+
+#hierarchical clustering using complete linkage 
+hc1 <- hclust(d, method = "complete")
+
+#plotting the obtained dendrogram 
+plot(hc1, cex = 0.6, hang = -1)
+
+```
+
+
+```{r}
+# methods to assess
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+
+# function to compute coefficient
+ac <- function(x) {
+  agnes(split.data, method = x)$ac
+}
+
+map_dbl(m, ac)
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+```{r}
+cor <- cor(superconduct_data)
+cor
+#data <- round(res, 2)
+
+resdata <- data.frame(cor[,82])
+resdata
+```
+
+
+```{r}
+ls(superconduct_data)
+```
+
+```{r}
+
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+
+
+```{r}
+# use sample correlation matrix
+data.pc <- princomp(superconduct_data, cor=TRUE)
+
+summary(data.pc, loadings = TRUE)
+```
+
+```{r}
+# A scree plot:
+plot(1:(length(data.pc$sdev)),  (data.pc$sdev)^2, type='b', 
+     main="Scree Plot", xlab="Number of Components", ylab="Eigenvalue Size")
+
+# Where does the "elbow" occur?
+# What seems to be a reasonable number of PCs to use?
+```
+
+```{r}
+
+```
+
+
+```{r}
+# The biplot can add information about the variables to the plot of the first two PC scores:
+
+biplot(data.pc)
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+install.packages("tidyverse")
+library(tidyverse)
+```{r}
+crit_temp <- select(superconduct_data, contains("critical_temp"))
+crit_temp
+```
+
+```{r}
+Atomic_Mass_Data <- superconduct_data %>%
+                      select(contains("atomic_mass"), contains("critical_temp"))
+Atomic_Mass_Data
+```
+
+```{r}
+plot(Atomic_Mass_Data)
+```
+
+```{r}
+res <- cor(Atomic_Mass_Data)
+res
+```
+
+
+
+```{r}
+Density_Data <- superconduct_data %>%
+                      select(contains("density"), contains("critical_temp"))
+Density_Data
+```
+
+```{r}
+res2 <- cor(Density_Data)
+res2
+```
+
+
+```{r}
+fie_Data <- superconduct_data %>%
+                      select(contains("fie"), contains("critical_temp"))
+fie_Data
+```
+
+
+```{r}
+res3 <- cor(fie_Data)
+res3
+```
+
+
+```{r}
+radius_Data <- superconduct_data %>%
+                      select(contains("radius"), contains("critical_temp"))
+radius_Data
+```
+
+
+```{r}
+res4 <- cor(radius_Data)
+res4
+```
+
+
+```{r}
+heat_Data <- superconduct_data %>%
+                      select(contains("heat"), contains("critical_temp"))
+heat_Data
+```
+
+
+```{r}
+res5 <- cor(heat_Data)
+res5
+```
+
+
+```{r}
+therm_Data <- superconduct_data %>%
+                      select(contains("therm"), contains("critical_temp"))
+therm_Data
+```
+
+
+```{r}
+res6 <- cor(therm_Data)
+res6
+```
+
+
+```{r}
+valence_Data <- superconduct_data %>%
+                      select(contains("valence"), contains("critical_temp"))
+valence_Data
+```
+
+
+```{r}
+res7 <- cor(valence_Data)
+res7
+```
+
+```{r}
+ggpairs(Atomic_Mass_Data, title="Correlogram with ggpairs()")
+```
+
+```{r}
+#All 28 Data 
+all_data <- superconduct_data %>% 
+                  select(number_of_elements, entropy_atomic_mass, wtd_entropy_atomic_mass, range_atomic_mass, entropy_fie,range_fie,std_fie, wtd_std_fie, entropy_atomic_radius, wtd_entropy_atomic_radius, range_atomic_radius, std_atomic_radius, wtd_std_atomic_radius, gmean_Density, wtd_gmean_Density, entropy_Density, entropy_FusionHeat, wtd_entropy_FusionHeat,range_ThermalConductivity, wtd_range_ThermalConductivity, std_ThermalConductivity, wtd_std_ThermalConductivity, mean_Valence, wtd_mean_Valence, gmean_Valence, wtd_gmean_Valence, entropy_Valence, wtd_entropy_Valence, critical_temp,)
+all_data
+```
+
+
+```{r}
+cor(all_data)
+```
+
+
+```{r}
+```
+
+```{r}
+final_data <- superconduct_data %>% 
+                  select(number_of_elements, wtd_entropy_atomic_mass, range_fie, range_atomic_radius, gmean_Density, entropy_Density, wtd_entropy_FusionHeat, wtd_std_ThermalConductivity, wtd_gmean_Valence, critical_temp)
+final_data
+```
+
+
+```{r}
+plot(final_data)
+```
+
+
+```{r}
+cor(final_data)
+```
+
+```{r}
+mean.data <- superconduct_data %>% 
+              select(starts_with("mean"), critical_temp)
+mean.data
+```
+
+
+```{r}
+cor(mean.data)
+```
+
+```{r}
+plot(mean.data)
+```
+
+```{r}
+# use sample correlation matrix
+final.data.pc <- princomp(final_data, cor=TRUE)
+
+summary(final.data.pc, loadings = TRUE)
+
+# The biplot can add information about the variables to the plot of the first two PC scores:
+
+biplot(final.data.pc)
+```
+
+
+
+```{r}
+
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+
+
+install.packages("car")
+library(car)
+```{r}
+fitted <- lm(critical_temp ~ ., data = final_data)
+vif(fitted)
+```
+
+
+```{r}
+fit <- lm(critical_temp ~ ., data = Atomic_Mass_Data)
+summary(fit)
+```
+
+
+```{r}
+#Forward Stepwise 
+
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+#Multiple Linear Regression 
+#Forwards and Backwards Stepwise Regresssion 
+#Fitting the Model 
+fit = lm(critical_temp ~ ., data = superconduct_data)
+summary(fit)
+```
+
+install.packages("leaps")
+install.packages("MASS")
+library(tidyverse)
+library(caret)
+library(MASS)
+library(leaps)
+
+```{r}
+#Forward Stepwise
+#Fit the full model
+full.model <- lm(critical_temp ~ ., data = superconduct_data)
+#Stepwise regression model
+step.model <- step(full.model, direction = 'both', trace = FALSE)
+step.model$results 
+```
+
+
+```{r}
+step(lm(critical_temp ~ ., data = superconduct_data),  ~ ., direction = 'both')
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
